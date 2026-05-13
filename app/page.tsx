@@ -201,7 +201,3 @@ html_content = """
 </html>
 """
 
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-print("File index.html generated successfully.")
