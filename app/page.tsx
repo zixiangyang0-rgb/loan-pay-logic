@@ -1,243 +1,207 @@
-"use client";
+import os
 
-import React, { useState, useEffect } from "react";
-import { Calculator, DollarSign, Percent, Calendar, ArrowRight } from "lucide-react";
+# Define the HTML content for the polished Next.js/Tailwind-style Mortgage Calculator
+html_content = """
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoanPayLogic - Smart Mortgage Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px; width: 18px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
 
-export default function MortgageCalculator() {
-  const [homePrice, setHomePrice] = useState<number>(500000);
-  const [downPayment, setDownPayment] = useState<number>(100000);
-  const [loanTerm, setLoanTerm] = useState<number>(30);
-  const [interestRate, setInterestRate] = useState<number>(6.5);
-
-  const [monthlyPayment, setMonthlyPayment] = useState<number>(0);
-  const [totalInterest, setTotalInterest] = useState<number>(0);
-  const [totalPayment, setTotalPayment] = useState<number>(0);
-
-  useEffect(() => {
-    calculateMortgage();
-  }, [homePrice, downPayment, loanTerm, interestRate]);
-
-  const calculateMortgage = () => {
-    const principal = homePrice - downPayment;
-    const monthlyInterestRatio = interestRate / 100 / 12;
-    const numberOfPayments = loanTerm * 12;
-
-    if (principal <= 0) {
-      setMonthlyPayment(0);
-      return;
-    }
-
-    // Mortgage formula: M = P[r(1+r)^n/((1+r)^n-1)]
-    const top = Math.pow(1 + monthlyInterestRatio, numberOfPayments);
-    const bottom = top - 1;
-    const sp = top / bottom;
-    const monthly = principal * monthlyInterestRatio * sp;
-
-    setMonthlyPayment(monthly);
-    setTotalPayment(monthly * numberOfPayments);
-    setTotalInterest(monthly * numberOfPayments - principal);
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const downPaymentPercent = Math.round((downPayment / homePrice) * 100) || 0;
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-200">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 py-6 px-8 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Calculator className="text-white w-5 h-5" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-slate-800">
-            LoanPay<span className="text-blue-600">Logic</span>
-          </span>
+    <nav class="max-w-7xl mx-auto w-full px-6 py-8 flex justify-between items-center">
+        <div class="text-2xl font-bold tracking-tighter text-slate-900">
+            LoanPay<span class="text-indigo-600">Logic</span>
         </div>
-        <nav className="hidden md:block">
-          <ul className="flex space-x-8 text-sm font-medium text-slate-600">
-            <li className="hover:text-blue-600 cursor-pointer transition-colors">Products</li>
-            <li className="hover:text-blue-600 cursor-pointer transition-colors">Rates</li>
-            <li className="hover:text-blue-600 cursor-pointer transition-colors">Resources</li>
-          </ul>
-        </nav>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-12 md:py-20">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
-            Smart Mortgage Calculator
-          </h1>
-          <p className="text-lg text-slate-500 max-w-2xl mx-auto">
-            Estimate your monthly payments, view amortization details, and explore your financing options with precision.
-          </p>
+        <div class="hidden md:flex gap-8 text-sm font-medium text-slate-600">
+            <a href="#" class="hover:text-indigo-600 transition-colors">Products</a>
+            <a href="#" class="hover:text-indigo-600 transition-colors">Rates</a>
+            <a href="#" class="hover:text-indigo-600 transition-colors">Resources</a>
         </div>
+    </nav>
 
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100 flex flex-col lg:flex-row">
-          
-          {/* Input Section */}
-          <div className="p-8 md:p-12 lg:w-3/5 bg-white">
-            <h2 className="text-2xl font-bold mb-8">Loan Details</h2>
+    <main class="flex-grow flex items-center justify-center px-4 pb-20">
+        <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden rounded-[2.5rem] shadow-2xl bg-white border border-slate-100">
             
-            <div className="space-y-8">
-              {/* Home Price Input */}
-              <div>
-                <label className="flex justify-between text-sm font-semibold text-slate-700 mb-2">
-                  <span>Home Price</span>
-                  <span className="text-blue-600">{formatCurrency(homePrice)}</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <DollarSign className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    type="number"
-                    value={homePrice}
-                    onChange={(e) => setHomePrice(Number(e.target.value))}
-                    className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-lg font-medium"
-                  />
-                </div>
-                <input
-                  type="range"
-                  min="50000"
-                  max="2000000"
-                  step="5000"
-                  value={homePrice}
-                  onChange={(e) => setHomePrice(Number(e.target.value))}
-                  className="w-full mt-4 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-              </div>
+            <div class="lg:col-span-7 p-8 md:p-12">
+                <header class="mb-10">
+                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight mb-2">Smart Mortgage Calculator</h1>
+                    <p class="text-slate-500">精准估算您的每月还款额，探索最佳贷款方案。</p>
+                </header>
 
-              {/* Down Payment Input */}
-              <div>
-                <label className="flex justify-between text-sm font-semibold text-slate-700 mb-2">
-                  <span>Down Payment</span>
-                  <span className="text-blue-600">{formatCurrency(downPayment)} ({downPaymentPercent}%)</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <DollarSign className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    type="number"
-                    value={downPayment}
-                    onChange={(e) => setDownPayment(Number(e.target.value))}
-                    className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-lg font-medium"
-                  />
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={homePrice}
-                  step="1000"
-                  value={downPayment}
-                  onChange={(e) => setDownPayment(Number(e.target.value))}
-                  className="w-full mt-4 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Loan Term Input */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Loan Term</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Calendar className="h-5 w-5 text-slate-400" />
+                <div class="space-y-8">
+                    <div class="group">
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="text-xs font-bold uppercase tracking-widest text-slate-400">Home Price</label>
+                            <span class="text-xl font-bold text-indigo-600" id="priceDisplay">$500,000</span>
+                        </div>
+                        <div class="relative mb-4">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                                <i class="fas fa-home"></i>
+                            </span>
+                            <input type="number" id="priceInput" value="500000" 
+                                class="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-lg font-semibold text-slate-700 transition-all">
+                        </div>
+                        <input type="range" id="priceSlider" min="50000" max="2000000" step="10000" value="500000" 
+                            class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
                     </div>
-                    <select
-                      value={loanTerm}
-                      onChange={(e) => setLoanTerm(Number(e.target.value))}
-                      className="w-full pl-11 pr-10 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-lg font-medium appearance-none"
-                    >
-                      <option value={15}>15 Years</option>
-                      <option value={20}>20 Years</option>
-                      <option value={30}>30 Years</option>
-                    </select>
-                  </div>
-                </div>
 
-                {/* Interest Rate Input */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Interest Rate</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Percent className="h-5 w-5 text-slate-400" />
+                    <div class="group">
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="text-xs font-bold uppercase tracking-widest text-slate-400">Down Payment</label>
+                            <span class="text-xl font-bold text-indigo-600" id="downDisplay">$100,000 (20%)</span>
+                        </div>
+                        <div class="relative mb-4">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                                <i class="fas fa-wallet"></i>
+                            </span>
+                            <input type="number" id="downInput" value="100000" 
+                                class="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-lg font-semibold text-slate-700 transition-all">
+                        </div>
+                        <input type="range" id="downSlider" min="0" max="1000000" step="5000" value="100000" 
+                            class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
                     </div>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={interestRate}
-                      onChange={(e) => setInterestRate(Number(e.target.value))}
-                      className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-lg font-medium"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Results Section */}
-          <div className="p-8 md:p-12 lg:w-2/5 bg-slate-900 text-white flex flex-col justify-between">
-            <div>
-              <h3 className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">Estimated Monthly Payment</h3>
-              <div className="text-5xl font-extrabold text-white mb-8 tracking-tight">
-                {formatCurrency(monthlyPayment)}
-              </div>
-
-              <div className="space-y-6">
-                <div className="flex justify-between items-center pb-4 border-b border-slate-800">
-                  <span className="text-slate-400">Principal Amount</span>
-                  <span className="font-semibold text-lg">{formatCurrency(homePrice - downPayment)}</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <label class="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-3">Loan Term</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </span>
+                                <select id="termInput" class="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-lg font-semibold text-slate-700 appearance-none">
+                                    <option value="30">30 Years</option>
+                                    <option value="20">20 Years</option>
+                                    <option value="15">15 Years</option>
+                                    <option value="10">10 Years</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-3">Interest Rate (%)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                                    <i class="fas fa-percentage"></i>
+                                </span>
+                                <input type="number" id="rateInput" value="6.5" step="0.1"
+                                    class="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-lg font-semibold text-slate-700">
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex justify-between items-center pb-4 border-b border-slate-800">
-                  <span className="text-slate-400">Total Interest</span>
-                  <span className="font-semibold text-lg">{formatCurrency(totalInterest)}</span>
-                </div>
-                <div className="flex justify-between items-center pb-4 border-b border-slate-800">
-                  <span className="text-slate-400">Total Cost of Loan</span>
-                  <span className="font-semibold text-lg">{formatCurrency(totalPayment)}</span>
-                </div>
-              </div>
-
-              {/* Visual Breakdown Bar */}
-              <div className="mt-8">
-                <div className="flex justify-between text-xs text-slate-400 mb-2">
-                  <span>Principal</span>
-                  <span>Interest</span>
-                </div>
-                <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden flex">
-                  <div 
-                    className="bg-blue-500 h-full" 
-                    style={{ width: `${((homePrice - downPayment) / totalPayment) * 100}%` }}
-                  ></div>
-                  <div 
-                    className="bg-indigo-400 h-full" 
-                    style={{ width: `${(totalInterest / totalPayment) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
             </div>
 
-            {/* CTA Section */}
-            <div className="mt-12 bg-slate-800/50 p-6 rounded-2xl border border-slate-700">
-              <h4 className="font-semibold text-white mb-2">Ready to take the next step?</h4>
-              <p className="text-slate-400 text-sm mb-4">Connect with our top-tier lending partners to secure the best rates for your profile.</p>
-              <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-2 group">
-                Get Pre-Approved Offers
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
+            <div class="lg:col-span-5 bg-slate-900 p-8 md:p-12 flex flex-col justify-between text-white">
+                <div>
+                    <div class="mb-12">
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-4">Estimated Monthly Payment</p>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-6xl font-extrabold text-cyan-400" id="monthlyResult">$2,528</span>
+                            <span class="text-slate-500 font-medium">/mo</span>
+                        </div>
+                    </div>
 
+                    <div class="space-y-8">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                            <span class="text-slate-400 text-sm">Total Principal</span>
+                            <span class="text-xl font-bold" id="totalPrincipal">$400,000</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                            <span class="text-slate-400 text-sm">Total Interest</span>
+                            <span class="text-xl font-bold text-indigo-400" id="totalInterest">$510,192</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                            <span class="text-slate-400 text-sm">Total Pay-off</span>
+                            <span class="text-xl font-bold" id="totalPayoff">$910,192</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-12">
+                    <button class="w-full py-5 bg-cyan-400 hover:bg-cyan-300 text-slate-900 font-bold rounded-2xl transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-cyan-400/20 uppercase tracking-widest text-sm">
+                        Get Pre-Approved
+                    </button>
+                    <p class="text-center text-slate-500 text-[10px] mt-6 leading-relaxed">
+                        * 此计算仅供参考。实际利率和还款额可能因信用评分及银行政策而异。
+                    </p>
+                </div>
+            </div>
         </div>
-      </main>
-    </div>
-  );
-}
+    </main>
+
+    <script>
+        const elements = {
+            priceInput: document.getElementById('priceInput'),
+            priceSlider: document.getElementById('priceSlider'),
+            priceDisplay: document.getElementById('priceDisplay'),
+            downInput: document.getElementById('downInput'),
+            downSlider: document.getElementById('downSlider'),
+            downDisplay: document.getElementById('downDisplay'),
+            termInput: document.getElementById('termInput'),
+            rateInput: document.getElementById('rateInput'),
+            monthlyResult: document.getElementById('monthlyResult'),
+            totalPrincipal: document.getElementById('totalPrincipal'),
+            totalInterest: document.getElementById('totalInterest'),
+            totalPayoff: document.getElementById('totalPayoff')
+        };
+
+        function formatCurrency(num) {
+            return '$' + Math.round(num).toLocaleString();
+        }
+
+        function calculate() {
+            const P = elements.priceInput.value - elements.downInput.value;
+            const r = (elements.rateInput.value / 100) / 12;
+            const n = elements.termInput.value * 12;
+
+            if (P <= 0 || r <= 0 || n <= 0) return;
+
+            const monthly = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+            const totalPayoff = monthly * n;
+            const totalInterest = totalPayoff - P;
+
+            elements.monthlyResult.innerText = formatCurrency(monthly);
+            elements.totalPrincipal.innerText = formatCurrency(P);
+            elements.totalInterest.innerText = formatCurrency(totalInterest);
+            elements.totalPayoff.innerText = formatCurrency(totalPayoff);
+            
+            elements.priceDisplay.innerText = formatCurrency(elements.priceInput.value);
+            const downPercent = Math.round((elements.downInput.value / elements.priceInput.value) * 100);
+            elements.downDisplay.innerText = `${formatCurrency(elements.downInput.value)} (${downPercent}%)`;
+        }
+
+        // Event Listeners for sync
+        elements.priceSlider.oninput = (e) => { elements.priceInput.value = e.target.value; calculate(); };
+        elements.priceInput.oninput = (e) => { elements.priceSlider.value = e.target.value; calculate(); };
+        elements.downSlider.oninput = (e) => { elements.downInput.value = e.target.value; calculate(); };
+        elements.downInput.oninput = (e) => { elements.downSlider.value = e.target.value; calculate(); };
+        elements.termInput.onchange = calculate;
+        elements.rateInput.oninput = calculate;
+
+        calculate(); // Initial call
+    </script>
+</body>
+</html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("File index.html generated successfully.")
