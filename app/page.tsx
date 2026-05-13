@@ -1,155 +1,394 @@
-"use client";
+// app/page.tsx
+'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calculator, Table, PieChart, Info } from 'lucide-react';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
+
+interface MortgageResults {
+  monthlyPayment: number;
+  totalPayment: number;
+  totalInterest: number;
+  amortization: Array<{
+    month: number;
+    payment: number;
+    principal: number;
+    interest: number;
+    balance: number;
+  }>;
+}
 
 export default function MortgageCalculator() {
-  // 表单状态
-  const [loanAmount, setLoanAmount] = useState<number>(2000000); // 贷款总额 (元)
-  const [loanTerm, setLoanTerm] = useState<number>(30); // 贷款期限 (年)
-  const [interestRate, setInterestRate] = useState<number>(3.5); // 年利率 (%)
-  const [repaymentType, setRepaymentType] = useState<'equalPayment' | 'equalPrincipal'>('equalPayment');
+  const [loanAmount, setLoanAmount] = useState<number>(300000);
+  const [interestRate, setInterestRate] = useState<number>(4.5);
+  const [loanTerm, setLoanTerm] = useState<number>(30);
+  const [downPayment, setDownPayment] = useState<number>(60000);
 
-  // 计算结果状态
-  const [monthlyPayment, setMonthlyPayment] = useState<number>(0);
-  const [totalInterest, setTotalInterest] = useState<number>(0);
-  const [totalRepayment, setTotalRepayment] = useState<number>(0);
+  const [results, setResults] = useState<MortgageResults | null>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
 
   const calculateMortgage = () => {
-    const monthlyRate = interestRate / 100 / 12;
-    const months = loanTerm * 12;
+    const principal = loanAmount - downPayment;
+    if (principal <= 0) return;
 
-    if (repaymentType === 'equalPayment') {
-      // 等额本息计算公式: [贷款本金×月利率×(1+月利率)^还款月数]÷[(1+月利率)^还款月数-1]
-      const power = Math.pow(1 + monthlyRate, months);
-      const monthly = (loanAmount * monthlyRate * power) / (power - 1);
-      setMonthlyPayment(monthly);
-      setTotalRepayment(monthly * months);
-      setTotalInterest(monthly * months - loanAmount);
-    } else {
-      // 等额本金：首月还款 = (贷款本金÷还款月数) + 贷款本金×月利率
-      // 总利息 = [(总贷款额÷还款月数+总贷款额×月利率)+总贷款额÷还款月数×(1+月利率)]÷2×还款月数-总贷款额
-      const firstMonth = (loanAmount / months) + loanAmount * monthlyRate;
-      const totalInt = ((loanAmount / months + loanAmount * monthlyRate) + (loanAmount / months) * (1 + monthlyRate)) / 2 * months - loanAmount;
-      setMonthlyPayment(firstMonth); // 这里展示首月还款
-      setTotalInterest((loanAmount * months * monthlyRate + loanAmount * monthlyRate) / 2);
-      setTotalRepayment(loanAmount + (loanAmount * months * monthlyRate + loanAmount * monthlyRate) / 2);
+    const monthlyRate = interestRate / 100 / 12;
+    const numPayments = loanTerm * 12;
+
+    if (monthlyRate === 0) {
+      const monthlyPayment = principal / numPayments;
+      const totalPayment = monthlyPayment * numPayments;
+      setResults({
+        monthlyPayment,
+        totalPayment,
+        totalInterest: totalPayment - principal,
+        amortization: [],
+      });
+      return;
     }
+
+    const monthlyPayment =
+      (principal * monthlyRate * Math.pow(1 + monthlyRate, numPayments)) /
+      (Math.pow(1 + monthlyRate, numPayments) - 1);
+
+    const totalPayment = monthlyPayment * numPayments;
+    const totalInterest = totalPayment - principal;
+
+    // Generate amortization schedule
+    let balance = principal;
+    const amortization = [];
+
+    for (let month = 1; month <= numPayments; month++) {
+      const interestPayment = balance * monthlyRate;
+      const principalPayment = monthlyPayment - interestPayment;
+      balance -= principalPayment;
+
+      if (balance < 0) balance = 0;
+
+      amortization.push({
+        month,
+        payment: monthlyPayment,
+        principal: principalPayment,
+        interest: interestPayment,
+        balance: balance,
+      });
+    }
+
+    setResults({
+      monthlyPayment,
+      totalPayment,
+      totalInterest,
+      amortization,
+    });
   };
 
   useEffect(() => {
     calculateMortgage();
-  }, [loanAmount, loanTerm, interestRate, repaymentType]);
+  }, [loanAmount, interestRate, loanTerm, downPayment]);
+
+  const principal = loanAmount - downPayment;
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const chartData = results
+    ? {
+        labels: results.amortization
+          .filter((_, i) => i % 12 === 0 || i === results.amortization.length - 1)
+          .map((item) => `Year ${Math.ceil(item.month / 12)}`),
+        datasets: [
+          {
+            label: 'Remaining Balance',
+            data: results.amortization
+              .filter((_, i) => i % 12 === 0 || i === results.amortization.length - 1)
+              .map((item) => item.balance),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4,
+            fill: true,
+          },
+        ],
+      }
+    : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-gray-900 flex justify-center items-center gap-2">
-            <Calculator className="text-blue-600" /> LoanPayLogic
-          </h1>
-          <p className="mt-2 text-gray-600">专业的房贷还款规划与计算工具</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Input Section */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold mb-6 text-gray-800 border-b pb-2">参数设置</h2>
-            
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">贷款金额 (元)</label>
-                <input 
-                  type="number" 
-                  value={loanAmount} 
-                  onChange={(e) => setLoanAmount(Number(e.target.value))}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">贷款期限 (年)</label>
-                <select 
-                  value={loanTerm} 
-                  onChange={(e) => setLoanTerm(Number(e.target.value))}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  {[5, 10, 15, 20, 25, 30].map(year => (
-                    <option key={year} value={year}>{year} 年 ({year * 12} 期)</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">年利率 (%)</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  value={interestRate} 
-                  onChange={(e) => setInterestRate(Number(e.target.value))}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">还款方式</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => setRepaymentType('equalPayment')}
-                    className={`p-2 text-sm rounded-lg border transition-all ${repaymentType === 'equalPayment' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}
-                  >
-                    等额本息
-                  </button>
-                  <button 
-                    onClick={() => setRepaymentType('equalPrincipal')}
-                    className={`p-2 text-sm rounded-lg border transition-all ${repaymentType === 'equalPrincipal' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}
-                  >
-                    等额本金
-                  </button>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 text-white">
+      {/* Navbar */}
+      <nav className="border-b border-white/10 bg-black/50 backdrop-blur-lg fixed w-full z-50">
+        <div className="max-w-7xl mx-auto px-8 py-5 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-2xl">
+              L
             </div>
-          </div>
-
-          {/* Result Section */}
-          <div className="bg-blue-600 p-8 rounded-2xl shadow-lg text-white flex flex-col justify-between">
             <div>
-              <h2 className="text-xl font-medium opacity-90 mb-2">
-                {repaymentType === 'equalPayment' ? '每月还款' : '首月还款'}
-              </h2>
-              <div className="text-5xl font-bold mb-8">
-                ¥{monthlyPayment.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </div>
+              <div className="font-semibold text-2xl tracking-tight">LoanPay Logic</div>
+              <div className="text-xs text-blue-400 -mt-1">Smart Mortgage Solutions</div>
+            </div>
+          </div>
+          <div className="flex gap-8 text-sm font-medium">
+            <a href="#" className="hover:text-blue-400 transition-colors">Calculator</a>
+            <a href="#" className="hover:text-blue-400 transition-colors">Affordability</a>
+            <a href="#" className="hover:text-blue-400 transition-colors">Rates</a>
+            <a href="#" className="hover:text-blue-400 transition-colors">About</a>
+          </div>
+        </div>
+      </nav>
 
-              <div className="space-y-6">
-                <div className="flex justify-between items-center border-b border-blue-400 pb-2">
-                  <span className="opacity-80">支付利息</span>
-                  <span className="text-xl font-semibold">¥{totalInterest.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+      <div className="pt-24 pb-16 max-w-7xl mx-auto px-8">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full text-sm mb-4 backdrop-blur">
+            <span className="text-emerald-400">●</span> Real-time • Accurate • Professional
+          </div>
+          <h1 className="text-6xl font-bold tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-300">
+            Mortgage Calculator
+          </h1>
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+            Make smarter home financing decisions with precise calculations and beautiful insights.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-5 gap-8">
+          {/* Calculator Inputs */}
+          <div className="lg:col-span-2">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+              <h2 className="text-2xl font-semibold mb-8">Loan Details</h2>
+
+              <div className="space-y-8">
+                {/* Loan Amount */}
+                <div>
+                  <div className="flex justify-between text-sm mb-3">
+                    <label className="font-medium">Home Price</label>
+                    <span className="font-mono text-blue-400">{formatCurrency(loanAmount)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50000"
+                    max="2000000"
+                    step="1000"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(Number(e.target.value))}
+                    className="w-full accent-blue-600"
+                  />
+                  <input
+                    type="number"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(Number(e.target.value))}
+                    className="mt-3 w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition-colors"
+                  />
                 </div>
-                <div className="flex justify-between items-center border-b border-blue-400 pb-2">
-                  <span className="opacity-80">还款总额</span>
-                  <span className="text-xl font-semibold">¥{totalRepayment.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+
+                {/* Down Payment */}
+                <div>
+                  <div className="flex justify-between text-sm mb-3">
+                    <label className="font-medium">Down Payment</label>
+                    <span className="font-mono text-emerald-400">{formatCurrency(downPayment)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max={loanAmount}
+                    step="1000"
+                    value={downPayment}
+                    onChange={(e) => setDownPayment(Number(e.target.value))}
+                    className="w-full accent-emerald-600"
+                  />
+                  <input
+                    type="number"
+                    value={downPayment}
+                    onChange={(e) => setDownPayment(Number(e.target.value))}
+                    className="mt-3 w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+
+                {/* Interest Rate */}
+                <div>
+                  <div className="flex justify-between text-sm mb-3">
+                    <label className="font-medium">Annual Interest Rate</label>
+                    <span className="font-mono">{interestRate}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="12"
+                    step="0.1"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(Number(e.target.value))}
+                    className="w-full accent-blue-600"
+                  />
+                  <input
+                    type="number"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(Number(e.target.value))}
+                    step="0.01"
+                    className="mt-3 w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-lg focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+
+                {/* Loan Term */}
+                <div>
+                  <div className="flex justify-between text-sm mb-3">
+                    <label className="font-medium">Loan Term</label>
+                    <span className="font-mono">{loanTerm} years</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[15, 20, 25, 30].map((years) => (
+                      <button
+                        key={years}
+                        onClick={() => setLoanTerm(years)}
+                        className={`py-4 rounded-2xl text-sm font-medium transition-all ${
+                          loanTerm === years
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                            : 'bg-white/10 hover:bg-white/20 border border-white/10'
+                        }`}
+                      >
+                        {years} yrs
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 bg-blue-700 p-4 rounded-xl flex items-start gap-3">
-              <Info size={20} className="shrink-0 mt-1" />
-              <p className="text-sm opacity-90">
-                {repaymentType === 'equalPayment' 
-                  ? "等额本息：每月还款额固定。前期利息占比较大，后期本金占比较大。" 
-                  : "等额本金：每月还款本金固定，利息递减。前期还款压力较大，但总利息更省。"}
-              </p>
+          {/* Results */}
+          <div className="lg:col-span-3">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10 shadow-2xl h-full flex flex-col">
+              {results ? (
+                <>
+                  <div className="text-center mb-10">
+                    <div className="text-sm uppercase tracking-widest text-slate-400 mb-2">Monthly Payment</div>
+                    <div className="text-7xl font-bold tracking-tighter text-white">
+                      {formatCurrency(results.monthlyPayment)}
+                    </div>
+                    <div className="text-slate-400 mt-1">per month</div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-6 mb-12">
+                    <div className="bg-white/5 rounded-2xl p-6 text-center">
+                      <div className="text-xs text-slate-400 mb-1">TOTAL PAID</div>
+                      <div className="font-semibold text-2xl">{formatCurrency(results.totalPayment)}</div>
+                    </div>
+                    <div className="bg-white/5 rounded-2xl p-6 text-center">
+                      <div className="text-xs text-slate-400 mb-1">TOTAL INTEREST</div>
+                      <div className="font-semibold text-2xl text-orange-400">
+                        {formatCurrency(results.totalInterest)}
+                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-2xl p-6 text-center">
+                      <div className="text-xs text-slate-400 mb-1">LOAN AMOUNT</div>
+                      <div className="font-semibold text-2xl">{formatCurrency(principal)}</div>
+                    </div>
+                  </div>
+
+                  {/* Balance Chart */}
+                  {chartData && (
+                    <div className="mb-10">
+                      <div className="text-sm text-slate-400 mb-4 flex items-center justify-between">
+                        <span>Balance Over Time</span>
+                        <span className="text-xs">Yearly View</span>
+                      </div>
+                      <div className="h-64">
+                        <Line
+                          data={chartData}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              legend: { display: false },
+                            },
+                            scales: {
+                              y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255,255,255,0.08)' },
+                                ticks: { color: '#64748b', font: { size: 11 } },
+                              },
+                              x: {
+                                grid: { color: 'rgba(255,255,255,0.08)' },
+                                ticks: { color: '#64748b', font: { size: 11 } },
+                              },
+                            },
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setShowSchedule(!showSchedule)}
+                    className="w-full py-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl font-medium transition-all active:scale-[0.985]"
+                  >
+                    {showSchedule ? 'Hide' : 'View'} Full Amortization Schedule
+                  </button>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-slate-400">
+                  Adjust inputs to see results
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Disclaimer */}
-        <p className="text-center text-gray-400 text-xs mt-10">
-          * 计算结果仅供参考，实际还款额以银行合同为准。域名 loanpaylogic.com 归属所有。
-        </p>
+        {/* Amortization Schedule */}
+        {showSchedule && results && (
+          <div className="mt-12 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden">
+            <div className="p-8 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-2xl font-semibold">Amortization Schedule</h3>
+              <div className="text-sm text-slate-400">Total of {results.amortization.length} payments</div>
+            </div>
+            <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+              <table className="w-full min-w-[700px]">
+                <thead className="sticky top-0 bg-slate-950/80 backdrop-blur z-10">
+                  <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-slate-400">
+                    <th className="text-left p-5 font-normal">Payment #</th>
+                    <th className="text-right p-5 font-normal">Payment</th>
+                    <th className="text-right p-5 font-normal">Principal</th>
+                    <th className="text-right p-5 font-normal">Interest</th>
+                    <th className="text-right p-5 font-normal">Remaining Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10 text-sm font-mono">
+                  {results.amortization.slice(0, 60).map((row) => (
+                    <tr key={row.month} className="hover:bg-white/5 transition-colors">
+                      <td className="p-5 text-slate-400">Month {row.month}</td>
+                      <td className="p-5 text-right">{formatCurrency(row.payment)}</td>
+                      <td className="p-5 text-right text-emerald-400">{formatCurrency(row.principal)}</td>
+                      <td className="p-5 text-right text-orange-400">{formatCurrency(row.interest)}</td>
+                      <td className="p-5 text-right">{formatCurrency(row.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {results.amortization.length > 60 && (
+                <div className="p-8 text-center text-slate-400 text-sm">
+                  Showing first 5 years. Download CSV for full schedule.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-12 text-center text-sm text-slate-500">
+        <div className="max-w-7xl mx-auto px-8">
+          © {new Date().getFullYear()} LoanPay Logic. Professional mortgage insights.
+          <div className="mt-2">Built with precision • Deployed on Vercel</div>
+        </div>
+      </footer>
     </div>
   );
 }
